@@ -1,0 +1,27 @@
+{
+  "name": "nervdash",
+  "version": "0.1.0",
+  "description": "A Neon Genesis Evangelion themed personal dashboard",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "dashboard",
+    "evangelion",
+    "nerv",
+    "personal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "googleapis": "^132.0.0",
+    "node-ical": "^0.15.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

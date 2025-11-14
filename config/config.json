@@ -1,0 +1,44 @@
+{
+  "widgets": [
+    {
+      "id": "bitcoin-price",
+      "type": "bitcoin",
+      "title": "BTC Price",
+      "layout": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "config": {
+        "currency": "usd",
+        "refreshInterval": 60000
+      }
+    },
+    {
+      "id": "calendar-events",
+      "type": "calendar",
+      "title": "Upcoming Events",
+      "layout": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "config": {
+        "icalUrl": "https://example.com/my-calendar.ics",
+        "lookaheadDays": 7,
+        "refreshInterval": 300000
+      }
+    },
+    {
+      "id": "finance-transactions",
+      "type": "finance",
+      "title": "Recent Transactions",
+      "layout": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "config": {
+        "spreadsheetId": "",
+        "range": "Transactions!A1:F500",
+        "limit": 5,
+        "refreshInterval": 300000
+      }
+    }
+  ],
+  "google": {
+    "oauth": {
+      "clientId": "",
+      "clientSecret": "",
+      "redirectUri": "http://localhost:3000/api/google/oauth2callback"
+    }
+  }
+}
