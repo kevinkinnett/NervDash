@@ -1,0 +1,685 @@
+Designing a Neon Genesis Evangelion-Themed Personal Dashboard App
+Introduction
+
+This document outlines a comprehensive plan to build a personal dashboard web application that runs locally (on a second monitor) to display various personal data: Bitcoin price, calendar events, financial transactions (from Google Sheets), and more. The goal is a modular, extensible dashboard with multiple widgets, persistent settings for each widget, and a distinctive Neon Genesis Evangelion (NERV computer) theme (dark background with neon blue/green accents, CRT-style pixelation and scanlines). The dashboard will be lightweight (suitable for local use, not a heavy production server) and easily maintainable or extendable (following SOLID principles for code design). Key considerations include choosing an appropriate tech stack (Node.js, Python, or Rust), handling OAuth for Google services (Calendar/Sheets), implementing drag-and-drop widget layout, and achieving the desired retro visual style.
+
+Core Features and Requirements
+
+Multiple Informational Widgets: Initially include at least three widgets:
+
+Bitcoin Price – display current Bitcoin price (in USD, using CoinGecko API).
+
+Calendar Events – show upcoming events from a personal calendar (via an iCalendar feed or Google Calendar).
+
+Financial Transactions – summarize recent transactions or balances from a Google Sheet (populated by a finance tracking service).
+
+Extensibility: The system should allow adding new widgets in the future with minimal changes. Widgets should be modular, each with its own data retrieval logic and configurable settings.
+
+Persistent Settings: Each widget can be configured (e.g., which calendar or sheet to use, refresh interval, display preferences) and these settings persist between runs.
+
+Drag-and-Drop Layout: The UI should allow widgets to be repositioned (and possibly resized) on the dashboard, with those layout preferences saved. The layout will be dense, utilizing the large monitor fully.
+
+Local and Lightweight: The app runs on the local machine only. It can be started on system boot (e.g., via Task Scheduler or startup script) and accessed via a local web browser or a "live wallpaper" app pointing to the local webpage. Efficiency is important but absolute performance is not critical since it's single-user; low resource usage is desirable.
+
+OAuth Integration: For Google Sheets (and possibly Calendar), the app must handle OAuth 2.0 authorization to access private data. This includes obtaining and storing an access/refresh token (likely via a one-time browser consent flow) and using it to fetch data periodically.
+
+Neon Genesis Evangelion Theme: The dashboard’s appearance will emulate the NERV computer aesthetics:
+
+Dark background with neon green and blue interface elements.
+
+Monospace or pixel-style fonts, with pixelated or low-res CRT feel.
+
+Scanline overlays, slight screen glare or glow on text (to mimic CRT monitors).
+
+Possibly static overlays or logos reminiscent of the anime's computer screens.
+
+SOLID & Maintainable Design: The codebase should follow clean design principles (e.g., single responsibility for components, clear separation of front-end and back-end logic, etc.), making it easy to understand and modify (even by an AI coding assistant in the future).
+
+Technology Stack Options
+
+Given the requirements, we need to choose a back-end platform to orchestrate data fetching (especially for Google OAuth and API calls) and serve the front-end. The options considered are:
+
+Node.js (JavaScript/TypeScript): A strong option due to its ability to serve web content and the rich ecosystem of libraries for web dashboards, Google APIs, and real-time updates. Node allows using one language (JavaScript) for both server and client. It has libraries like googleapis for Sheets/Calendar and countless packages for web dashboards. Using Node would make it straightforward to integrate with front-end JS libraries (for drag-drop, etc.) and handle async data fetching. Node has Google API client support which can handle OAuth flows and store credentials on disk for reuse
+developers.google.com
+. The async nature of Node is well-suited for periodically fetching data without blocking the UI. Additionally, if needed, frameworks like Express can provide a lightweight server.
+
+Python: Also viable, with frameworks like Flask or FastAPI for a lightweight server. Python has Google API client libraries as well (e.g., google-auth-oauthlib and google-api-python-client) which handle OAuth similarly. Python might be slightly simpler for an LLM to modify in some cases and is excellent for quick scripting. There are also specialized dashboard frameworks (e.g., Dash, Streamlit), but those might be too heavy or not flexible enough for the custom theme and drag-drop we want. A custom Flask app serving an HTML/JS front-end would work. Python's advantage is simplicity in writing data-fetch logic. However, integrating a rich interactive front-end (drag-drop, live updates) would still rely on JavaScript in the browser, so the benefit of Python is mainly on the server side.
+
+Rust: While Rust could produce a very efficient, single-binary web server, it significantly increases development complexity for tasks like OAuth and dynamic web content. The ecosystem for quickly handling Google APIs or live-reloading dashboards is less mature. Rust is great for performance and low resource usage, but given this is a personal tool and ease of extension is a priority, Rust would likely be overkill. The learning curve for maintaining or modifying Rust code (especially via an LLM) is higher. Rust could still be used to serve static files and perhaps call out to APIs, but overall Node or Python will allow faster development and easier changes.
+
+Recommendation: Use Node.js with a minimal web framework (e.g., Express) for the backend, and standard HTML/CSS/JavaScript (or TypeScript) for the front-end. Node provides an easy path for Google OAuth, can serve the dashboard page, and handle API requests to third-parties. It's also in JavaScript, meaning the developer (or an LLM assistant) can manage both front-end and back-end in one language. Python is a close second choice if preferred, but we'll assume Node for this design due to the integration benefits.
+
+ 
+
+Node’s Google API client will simplify OAuth: for example, using the official Google APIs Node.js client allows a “desktop app” OAuth flow and automatically stores the credentials token on disk for reuse
+developers.google.com
+. This means the first time you authorize, it opens a browser to let you log in and consent; after that, a token (and refresh token) are saved so subsequent runs can refresh without user intervention. Node also can easily fetch external API data (like from CoinGecko) using fetch or Axios.
+
+ 
+
+For the front-end, we can keep it relatively framework-light:
+
+Use a library like Gridstack.js for the drag-and-drop grid layout. Gridstack is framework-agnostic and provides a ready-made grid system where widgets can be dragged, resized, and their positions saved
+gridstackjs.com
+. This saves us from reinventing the wheel for widget layout logic. Gridstack can emit the layout configuration (positions/sizes) which we can then persist (perhaps in the browser’s localStorage or via an API to save on the server).
+
+No heavy front-end framework is strictly required; vanilla JavaScript or a bit of jQuery is enough for basic dynamic content updates. However, we could use a modern framework (React/Vue) if desired for component structure. Given the requirement to easily extend and modify via LLM, a simpler approach (static HTML + JS modules for widgets) might be better than the indirection of a large framework. We will lean towards a simple implementation: the dashboard page can be mostly static HTML, with placeholders for widgets, and a script that populates those via API calls and sets up drag-and-drop.
+
+Summary of Tech Stack:
+
+Backend: Node.js (Express server). Responsibilities: serve the HTML/JS/CSS files; handle OAuth 2.0 flow with Google; provide REST API endpoints for widget data (Bitcoin price, calendar events, sheet data, etc.); possibly schedule periodic data fetches or cache results.
+
+Frontend: HTML/CSS/JS in the browser. Use CSS for styling (Evangelion theme), JS for fetching data from the backend or external APIs, and a library for layout management (Gridstack.js for drag/drop).
+
+Data Storage: Since this is local, a simple JSON file on disk can store configuration (like Google OAuth tokens, user preferences, widget settings). Widget positions can be stored in localStorage (to auto-restore layout on page load), or also saved to a JSON on the server if we want a single source of truth. No database is needed; the data volume is small and local.
+
+System Architecture
+
+1. Client-Server Model (Localhost): The app will run a local web server (Node/Express) on, say, http://localhost:3000. The user’s second monitor will display this page (either by opening a browser in full-screen or via a wallpaper app that can load a webpage). The server serves a single-page dashboard UI and also exposes a set of API endpoints (like /api/bitcoin, /api/calendar, /api/finance, etc.) which the front-end script can call to get updated data. The separation allows us to secure and manage sensitive tokens on the server side and keep the front-end logic focused on presentation.
+
+ 
+
+2. Widget-Based Module Design: Each type of widget is handled by a pair of components:
+
+A Backend module (or route handler) to fetch and prepare data for that widget.
+
+A Frontend component (could be as simple as a <div> with an ID and some JavaScript that knows how to render data into it).
+
+We will design an interface for widgets. For example, on the backend, each widget module might expose:
+
+A data fetch function (possibly returning JSON data used by the front-end).
+
+If needed, a route (e.g., the Bitcoin widget corresponds to GET /api/bitcoin returning { price: 40250.00, lastUpdated: 'time'}).
+
+Perhaps a config schema for its settings (e.g., Bitcoin widget config = which currency to show, update interval; Calendar widget config = URL of iCal feed or calendar ID; Finance widget config = sheet ID or account, etc.).
+
+On the frontend, each widget will be represented by a draggable panel. The panel can have a template or a small rendering function:
+
+It might call the corresponding API endpoint to get data (using fetch in JS).
+
+It then updates its DOM (e.g., sets the Bitcoin price text, or fills a list of event titles).
+
+If the widget has interactive settings (like a refresh button, or options), those can be integrated in its panel UI as well.
+
+By isolating widgets, adding a new widget in the future means: writing a new backend route + data retrieval code, and adding a new frontend component (and listing it in an "Add Widget" menu). The core dashboard code (layout, etc.) remains unchanged, satisfying the Open/Closed principle (open for extension, closed for modification).
+
+ 
+
+3. Data Flow & Updates: The dashboard should update information periodically without user intervention.
+
+For static data or on-demand refresh (like the user hitting a refresh button on a widget), the front-end can call the API and update the widget.
+
+For truly real-time or periodic updates, we have two options:
+a) The front-end can use setInterval to poll the backend APIs (e.g., fetch Bitcoin price every X minutes).
+b) The backend can push updates via WebSockets or Server-Sent Events. Given this is a local app and simplicity is key, polling is acceptable and easier to implement.
+
+We can implement a small update loop for each widget type. Example: Bitcoin widget queries price every 60 seconds; Calendar widget refreshes events list every 5 or 10 minutes; Finance widget refreshes maybe every few minutes or on a longer interval depending on how frequently transactions update. These intervals can be configurable.
+
+Caching: The backend can cache responses (especially if external API calls have rate limits). For instance, if multiple widgets or multiple requests query the same data in quick succession, the backend can reuse recent data. However, since this is single-user and likely sequential, simple caching or just trusting the periodic calls is fine.
+
+4. Persisting Configuration: We will maintain a config file (in JSON or YAML) on the local file system for sensitive and persistent settings. This file can contain:
+
+Google OAuth credentials and tokens (access token, refresh token, expiration) – so that we don’t need to re-authorize each run. The Google API library typically can store these in a token file by itself; for example, the Node quickstart stores them in a file in the working directory by default
+developers.google.com
+. We can integrate that or specify our own path.
+
+User-specific settings: e.g., the Google Sheet ID for finance data, the iCal URL for calendar (if using iCal), or the Google Calendar ID if using direct API, preferred currency for Bitcoin, etc.
+
+Layout and widget list: we can also store which widgets are active and their last saved positions in this config. Alternatively, use localStorage for layout (since it’s just UI state). A hybrid approach: use localStorage for quick retrieval so that as soon as the page loads, it can place widgets correctly; also save to config file when the layout changes, so if the user clears browser storage or moves to a different machine, the layout can be restored from config.
+
+5. Security: Since the app is local, we don’t have to worry about external attacks, but we still handle OAuth tokens carefully (store in a file that only the user can access). The local server should ideally listen on localhost only, not expose to the network, for safety. If the user’s wallpaper app requires a file path or something, we might instead generate a static HTML that loads data via JS – but that would then need file-based API calls or none. More likely, the wallpaper app can handle a http://localhost address; if not, we might consider packing this as an Electron or similar app to run directly, but that adds complexity. Assuming it can use a local URL, that’s simplest.
+
+Data Source Integration
+
+Let's detail how each of the initial data sources will be integrated, along with any libraries or APIs used:
+
+1. Bitcoin Price (Crypto)
+
+For Bitcoin (and potentially other cryptocurrency prices), the CoinGecko API is an ideal choice. CoinGecko provides a free public API with no authentication required for basic queries. In particular, their /simple/price endpoint returns the current price of specified coins in specified currencies. For example, querying the price of Bitcoin in USD is straightforward:
+
+Endpoint: GET https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd
+
+Response: A small JSON like { "bitcoin": { "usd": 40321 } } (example value).
+
+This API is simple to use and appropriate for frequent updates. We can call it directly from the front-end via JavaScript fetch (as CoinGecko’s demo API is public), or from the backend (Node can fetch and maybe cache it). Calling from the front-end avoids even needing a backend proxy for this, but some API providers enforce CORS or rate limits per IP. CoinGecko’s public API does have rate limits (around 50-100 calls/minute for free, which is plenty for us) and does not require an API key for basic endpoints
+coingecko.com
+. We could choose to call it from frontend or backend; either way, it's lightweight.
+
+ 
+
+Given that we will already have a backend for other widgets, an approach is to create a backend route for it:
+
+E.g., /api/bitcoin which on request does fetch('https://api.coingecko.com/api/v3/simple/price?...') (perhaps using Node's node-fetch or Axios) and returns the JSON. This has the advantage of allowing the backend to possibly format or combine data (maybe add more coins later, etc.), and we can also centralize error handling (if CoinGecko is down or returns an error, the widget can show a stale value or message).
+
+Alternatively, directly call CoinGecko from the browser: The URL can be fetched with fetch() since it’s HTTPS. The advantage is slightly less load on our local server. However, if there were any cross-origin issues or needing an API key header, backend proxy might be needed. In CoinGecko’s case, the free endpoints can be used without keys, but if a key is provided (for higher rate limits), that should be kept secret on backend. For now, let's assume no API key (just using the free plan) – which is fine for personal use.
+
+We also might want to show more than just the price number – maybe the 24h change or a small sparkline graph of recent prices. CoinGecko’s API can provide additional data like percentage change or even historical price series if needed. Initially, we can keep it simple: just display the current price (maybe update every minute). We can always extend the widget to include more details.
+
+ 
+
+Implementation: The backend Node code for this could be as simple as:
+
+// Pseudocode
+app.get('/api/bitcoin', async (req, res) => {
+    try {
+       let resp = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+       let data = await resp.json();
+       res.json(data);
+    } catch(err) {
+       res.status(500).send({ error: 'Failed to fetch price' });
+    }
+});
+
+
+The front-end JS for the Bitcoin widget would call this endpoint and then update an element’s text content to, say, "$40,321".
+
+ 
+
+Citing CoinGecko: The CoinGecko documentation confirms the usage: for example, .../simple/price?ids=bitcoin&vs_currencies=usd is intended to retrieve the current price of Bitcoin in USD
+docs.coingecko.com
+. This aligns with our plan.
+
+2. Calendar Events
+
+For calendar events, the user suggested using iCal links. Many calendar applications (including Google Calendar and others) allow an iCalendar feed (.ics URL) that can be accessed via HTTP. If the user provides an iCal URL (which could be a public calendar feed or a "secret" URL from a private Google Calendar), we can fetch and parse the .ics file to get upcoming events.
+
+ 
+
+Approach A: iCalendar Feed – This avoids needing OAuth for Calendar. The steps would be:
+
+Store the iCal feed URL in the widget's settings (likely in the config file).
+
+The backend fetches the .ics periodically (or on request) and parses it.
+
+Parsing ICS: We can use a Node library like node-ical (or in Python, icalendar library) to parse the ICS file. In Node, node-ical can fetch a URL and parse it directly. It handles recurring events, time zones, etc., producing JavaScript objects for events
+medium.com
+. This is convenient because calendars often have recurring events and complex rules; a robust library ensures we correctly list events in a range.
+
+The backend can filter to upcoming events (e.g., events happening today and in the next N days). Alternatively, the front-end can get the full list and filter, but it's probably easier to have the backend only return what's relevant (to reduce data size and complexity on the front-end).
+
+The output from the /api/calendar endpoint could be a JSON array of events, each with fields like title, start time, end time, location, etc.
+
+The front-end widget script then takes that and displays a list (maybe just a vertical list of “Date – Event Name” entries, or however we design it).
+
+Approach B: Google Calendar API – If a more direct integration is desired, we could use the Google Calendar API via OAuth (since the user is anyway doing OAuth for Sheets). This would involve adding the Calendar scope to the OAuth consent and using Google’s API to pull events from a calendar. The Google Calendar API can list events in a time range. This is more complex to set up (scopes, API calls) and might be overkill if the iCal feed is available. However, it offers more control (e.g. picking which calendars to aggregate, etc.). Since the user specifically mentioned iCal, we lean towards that for simplicity.
+
+ 
+
+We'll plan with Approach A (iCal) for now:
+
+Use node-ical library. As noted in a Medium article, node-ical is a workhorse for fetching and parsing iCalendar data from URLs or files, handling VEVENT components, recurrences (RRULE), exceptions, etc.
+medium.com
+. We can rely on it to get correct upcoming events.
+
+Implement a backend route /api/calendar which does something like:
+
+Read the configured iCal URL.
+
+Use node-ical to fetch/parse it (e.g. const data = await ical.async.fromURL(icalUrl) which returns all events).
+
+Filter events to those in the future (and maybe within next X days).
+
+Return a simplified JSON list (e.g., [ { start: "2025-11-15T10:00:00", summary: "Meeting with Bob" }, ... ]).
+
+We could also do this parsing on the front-end (there are pure JS ical parsers too), but then we'd be exposing the iCal URL to the front-end (not a big deal if it's not sensitive, but some might want it private). Doing it server-side keeps any private calendar URL hidden.
+
+ 
+
+The Calendar widget on the UI might show something like a scrollable list of upcoming events (maybe grouped by date). It should update periodically to catch new events or changes (maybe every 15 minutes or so, since calendar events don't change that often).
+
+3. Finance Data from Google Sheets
+
+The user has a service that logs transactions to a Google Sheet. We need to retrieve and display some info from that sheet – perhaps recent transactions or summary statistics (balance, monthly spending, etc.). At minimum, we likely want to show the latest transactions (like a mini ledger) or the current total balance if that sheet tracks it.
+
+ 
+
+Google Sheets API via OAuth: Since the Google Sheet is private, we must use Google’s API to access it. This requires OAuth 2.0 user credentials:
+
+We would register a Google Cloud project and OAuth consent screen (for a Desktop App type, since this is local). Then obtain a client ID/secret.
+
+Using Google’s Node.js API client (googleapis package), we go through the OAuth flow. In a desktop app scenario, the Node process can open a browser window to the Google consent page (or instruct the user to visit a URL) and then Google will redirect to a local redirect URI (like http://localhost:3000/oauth2callback) with a code. The Node app exchanges that code for tokens.
+
+After the initial handshake, we store the refresh token so that subsequent runs can auto-refresh without user involvement
+developers.google.com
+.
+
+We will need the scope https://www.googleapis.com/auth/spreadsheets.readonly for reading Google Sheets. If we also were to use Google Calendar API, we’d include the calendar scope too (but if using iCal, no need).
+
+The token (likely stored in a JSON file, often named token.json) must be kept safe. Only our app uses it.
+
+Using the Sheets API, we have two main ways:
+
+Use Google API client: We can directly call sheets.spreadsheets.values.get method (as in Google’s quickstart example) to fetch a range of cells
+developers.google.com
+. If the transactions are in a table, we might know the range (e.g., "Sheet1!A1:F1000") or we might read the whole sheet. Alternatively, if the sheet is well-structured, perhaps use a query or filter. But likely just reading and processing in our code is fine.
+
+Use a library like gspread (Python) or node-google-spreadsheet (Node) which can simplify some of this. For Node, googleapis is fine. There’s also a popular package theoephraim/node-google-spreadsheet that wraps a lot of Sheets API in a simpler interface, but it still needs credentials. We might stick to the official API for full control.
+
+We should identify what exactly to display. Perhaps:
+
+The latest N transactions (with date, description, amount). For example, show the last 5 transactions from the sheet.
+
+Or a summary like "Total balance: $X, Spending this month: $Y". That would require some computation on the data. We could do that in code after retrieving data from the sheet (e.g., filter by date, sum amounts).
+
+Since the user specifically mentions transactions, likely listing them is useful.
+
+To keep it simple initially, maybe just list the last 5-10 transactions (date, description, amount). If the sheet is just accumulating rows, we can fetch the last few rows. Google Sheets API allows a get specifying a range. If we know the sheet name and that, say, A:F contain data, one trick: we could request something like Sheet1!A:(some columns) and Google will return only filled rows. But to reliably get the last rows, we might need to get all and then slice in our code (or use Google’s query language via the Visualization API, but that complicates matters).
+
+ 
+
+Better approach: get all values, then take last 5. For a personal sheet that's fine (unless it has tens of thousands of rows, still okay). Or keep track of last seen row and only fetch new ones next time (not necessary unless performance issues).
+
+ 
+
+So:
+
+Backend route /api/finance that:
+
+Authenticates with Google using stored token.
+
+Calls Sheets API to get values from the sheet (spreadsheet ID and range come from config).
+
+Processes data if needed (e.g., parse into objects with meaningful keys).
+
+Returns JSON, e.g., { transactions: [ { date: "2025-11-13", payee: "Starbucks", amount: -5.75 }, ... ] }.
+
+Optionally does some calculation (maybe could also return monthlyTotal or something if we want).
+
+Because this will require initial OAuth setup, the app should provide a one-time setup mechanism:
+
+Perhaps when the server first starts and no valid token is present, it prints a URL or automatically launches the browser to let the user authorize. Once done, it saves the credentials. Google’s Node quickstart code essentially does this if no token file is found
+developers.google.com
+developers.google.com
+.
+
+We need to ensure this flow can run in a headless scenario. If using Task Scheduler to auto-run, the first run might not have authorized yet. The user might need to run it manually to authorize, or we handle gracefully by not crashing if not authorized and showing a message on the UI "Finance widget not authorized. Click here to authorize." We could have a button in the widget that initiates the OAuth flow (opening a link to Google).
+
+Easiest is to do initial setup manually and then rely on stored token.
+
+OAuth Token Persistence: The Google Node client by default can store tokens in a file. The quickstart uses @google-cloud/local-auth which stores tokens under ~/.credentials or similar. It says "Authorization information is stored in the file system, so the next time you run the code, you aren't prompted for authorization."
+developers.google.com
+. We can leverage that, or manually save to our config JSON.
+
+ 
+
+Refresh: The backend should handle token refresh (the Google library usually does automatically if using OAuth2Client). So maintenance of token is minimal.
+
+ 
+
+Potential Alternates: If not using live API, one could publish the Google Sheet to the web (CSV or JSON format) that doesn't need auth. Google Sheets allows a sheet to be published and accessible via a URL (even a JSON feed via Sheets API v3). But that exposes data publicly and requires manual step each time if updates. Since we want to keep it private, OAuth is the right path.
+
+4. Other Future Widgets
+
+Although not required immediately, it's good to think of other data sources to ensure our design is general enough. Future widgets might include:
+
+Weather Information (from a public API like OpenWeatherMap) to display current weather.
+
+Stock Prices or Other Cryptos (similar to Bitcoin widget, could reuse CoinGecko or other APIs).
+
+System Info (like computer resource usage, if this is a desktop dashboard maybe CPU/RAM usage via an OS query).
+
+News headlines, RSS feeds, or social media notifications.
+
+To-do list or notes (maybe a simple widget that reads a local file or syncs with an API).
+
+LLM Integration: Perhaps a fun one could be an AI chatbot or daily quote generator.
+
+Our architecture (with separate modules) can accommodate these. Each new widget will follow the pattern: define its data source (API or local), create a backend route if needed (unless the data can be fetched directly by the browser), and create a front-end component.
+
+ 
+
+We might create a registry of widget types in the code, to help with dynamically constructing them. For example, an object mapping widget type name to its configuration:
+
+const widgetTypes = {
+  "bitcoin": { name: "Bitcoin Price", init: initBitcoinWidget, defaultConfig: {...} },
+  "calendar": { name: "Calendar Events", init: initCalendarWidget, defaultConfig: {...} },
+  // ...
+};
+
+
+This can be used to populate an "Add Widget" menu in the UI, and to initialize widgets on load from saved config.
+
+Extensible Widget Design (Modularity)
+
+To ensure the solution is extensible and maintainable, we'll enforce a modular design:
+
+Separation of Concerns: The backend will separate the logic for each widget's data retrieval. For example, have distinct service functions or classes: BitcoinService, CalendarService, FinanceService. These contain the specifics of calling CoinGecko, parsing iCal, querying Google Sheets, respectively. The Express routes will just call these services and return the data. This keeps the route handlers clean and each service focused (Single Responsibility).
+
+Common Patterns: If many widgets follow a similar pattern (fetch data from URL and return JSON), we can follow a consistent pattern. Perhaps use an abstract class or simply ensure each service exposes a method like fetchData() that returns a promise of the needed data. That way, adding a new widget is about writing a new service with fetchData and adding a route for it.
+
+Configurable Settings: Each widget type should define what settings it needs. For instance, Calendar widget needs a URL and maybe a range (like how many days ahead to show). Finance widget needs a spreadsheet ID and maybe a sheet name or range. These settings could be exposed in the UI via a widget settings menu (e.g., a gear icon on the widget opens a small form). The settings would then be saved to the config and used by the backend calls. Initially, if we want to avoid building too much UI, we can require editing a config file or a section in code to change such parameters. But considering the goal of easy extensibility (even via an LLM), it might be reasonable to parse a JSON5/YAML config that a user or an AI could edit to change widget settings without diving into code.
+
+Open/Closed Principle: The core dashboard engine (the part that handles layout, loads existing widgets, etc.) should not need modification to support a new widget. New widgets can be registered via configuration. For example, the config file might have:
+
+"widgets": [
+   { "type": "bitcoin", "position": {x:0,y:0}, "config": { "currency": "USD" } },
+   { "type": "calendar", "position": {x:1,y:0}, "config": { "icalUrl": "http://..." } }
+]
+
+
+The dashboard front-end reads this and for each entry, creates the appropriate widget. The widget type points to its rendering logic. This way, adding a widget = adding one object in config and ensuring the type is known in the code (and that the backend has the route if needed).
+
+Single Page Application Consideration: We can make the dashboard a simple single page that dynamically builds itself from the config (or from saved layout data). This avoids having separate pages and allows dynamic updates. We might include all widget scripts in one bundle, or load them on demand when a widget is added.
+
+Ease of LLM Assistance: Because the user explicitly mentioned working with LLMs to modify the app, it's beneficial if:
+
+The code is well-commented and uses clear naming.
+
+The structure is straightforward (avoid overly clever metaprogramming or complex state).
+
+Use popular libraries (like Express, node-ical, etc.) so that an LLM likely has context about them.
+
+Provide documentation in code for how to add new widgets.
+
+For instance, we can have a README.md (for the project itself) instructing: "To add a new widget, do X, Y, Z." That way, even an AI could follow those steps.
+
+UI Layout and Drag-and-Drop Implementation
+
+A key feature is the ability to rearrange widgets on the dashboard freely. We want a drag-and-drop, resizable grid so the user can customize the layout on their large monitor.
+
+ 
+
+Grid System: We will use Gridstack.js (or a similar drag-drop library) to manage the layout:
+
+Gridstack allows defining a grid (with configurable column count, etc.) and then placing “widgets” (grid items) into it. Each item is a DOM element with classes/attributes indicating its position and dimensions (e.g., data-gs-x, data-gs-y, data-gs-width, data-gs-height).
+
+It makes elements draggable and resizable by the user. The library will handle the collisions and snapping to grid for us.
+
+We can configure it for a dense dashboard: e.g., 12 columns across the screen, and each widget might take a few columns. Or a fluid layout. Gridstack by default is responsive (it can collapse columns on smaller screens, but since this is a fixed large monitor, we might not need responsiveness).
+
+One useful feature: Save/Restore – Gridstack can output the layout as an array of positions and sizes which we can save
+gridstackjs.com
+. We can easily preserve and reload the layout, which addresses persistence of the widget arrangement.
+
+Initial Layout: We need to decide an initial arrangement for when the dashboard first loads (or for new widgets). Possibly something like: a 3-column layout where each widget takes one column width. But with drag-drop, this is flexible.
+
+ 
+
+Adding/Removing Widgets:
+
+Gridstack supports dynamically adding and removing items. We will likely have an "Edit mode" toggle or a permanent UI element like a plus (+) button that opens a list of widget types to add. For now, since it's just for the user (who can also edit config), this is optional. The user indicated they want it easily extensible, but not necessarily that they'll be adding and removing frequently via UI.
+
+We might simply instantiate all configured widgets on load. If they want a new one, they could add to config and restart or in the future do via UI.
+
+Removing/hiding a widget could be an (x) button on each widget if editing.
+
+Styling of Widgets: Each widget panel can have a title bar (with the widget name and perhaps icons for settings or remove). This title bar can be styled in the theme (maybe a neon blue bar or something). The content area of the widget will have the data. We might make the widgets semi-transparent or with a slight background so that overlapping scanline effects show.
+
+ 
+
+Scrolling: The dashboard likely fits on one screen (especially if it's the size of a monitor), but if there are many widgets it might scroll vertically. Gridstack can allow vertical scroll by just extending the grid's height as needed. For a dense info display, maybe we aim to use the space without scroll (so arrange everything to fit nicely).
+
+ 
+
+Responsive: Since it's a fixed setup (one specific monitor resolution), we can optimize for that. But if the user resizes the window or uses a different monitor, Gridstack can handle resizing (it can scale widgets when width changes if configured). We can choose a fixed pixel grid or a percentage-based layout.
+
+ 
+
+Inter-widget Communication: At this stage, each widget is independent. If in the future some widgets needed to interact (for example, clicking a calendar event could filter transactions, etc.), we’d need an event bus or simple pub-sub. That’s out of scope for now but our modular design can accommodate it if needed by adding a small mediator.
+
+Theming and UI Design: Evangelion NERV Aesthetic
+
+One of the more exciting requirements is the Neon Genesis Evangelion NERV computer theme. This influences typography, colors, and graphical effects. Here’s how we can achieve that look and feel:
+
+Color Palette: Primarily use dark backgrounds (black or very deep navy/grey) with bright neon text/elements. In Evangelion, computer screens often have green text on black (like old monochrome CRTs) or sometimes blue and red alerts. We can use neon green (#00FF00) and neon blue/cyan for most text and accents. Possibly oranges or reds for warnings or highlights (as seen in NERV interfaces). The palette should remain limited and high-contrast.
+
+Fonts: A monospaced font evokes retro terminals. The default could be "Courier New" or similar, which gives an immediate old-computer vibe
+medium.com
+. We might also consider pixelated fonts (there are fonts that mimic low-res pixel text). Another approach is using a normal font but applying CSS to make it look pixelated or aliased. For instance, font-smooth can be turned off and using a small size with scaling to show jagged edges. But Courier New with some styling might suffice, as noted in a retro styling guide
+medium.com
+.
+
+Text Glow: To simulate the glow of text on a CRT, we can use CSS text-shadow. For example, a neon green text with a faint green shadow blur yields a glow effect around letters
+medium.com
+. E.g.:
+
+.crt-text {
+  color: #00ff00;
+  text-shadow: 0 0 8px #00ff00;
+}
+
+
+This makes the text pop as if it's emitting light.
+
+Scanlines Effect: A hallmark of CRT displays is the presence of scanlines (the horizontal lines across the screen). We can overlay a semi-transparent pattern or use a CSS gradient trick to create these. One approach (as demonstrated in some CSS CRT tutorials) is to use a background image or gradient on a pseudo-element:
+
+Example:
+
+.crt-screen::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, #000 1px, #333 1px); 
+  background-size: 100% 2px;
+  pointer-events: none;
+  mix-blend-mode: lighten;
+  opacity: 0.2;
+}
+
+
+This would draw a 1px black line and 1px grey line repeated, making faint horizontal lines.
+
+Another approach is using the CSS trick described by a developer where they set a background gradient that’s 1px tall and then scale it and animate it slightly to simulate a rolling scanline
+medium.com
+. For example, setting background: linear-gradient(to top, #000, #000, #333, #333); background-size: 100% 1px; animation: scanlines 60s linear infinite; which slowly moves the background position
+medium.com
+. This gives an illusion of the lines moving/flickering subtly.
+
+CRT Blur/Glow: CRTs slightly blur or bloom bright elements. We can apply a very small blur filter to the entire dashboard or specific elements to mimic the slight out-of-focus effect of a screen. For instance, filter: blur(0.8px); on a container can make the content look less razor-sharp (which adds to the retro feel)
+medium.com
+. We have to be careful not to overdo it (text still needs to be readable). The blur could maybe be applied behind the text glow to broaden it.
+
+Distortion: For authenticity, sometimes people add a slight curve or vignette since CRTs are curved glass. We might not need that, but a subtle dark vignette at edges or a border that is rounded can hint at a curved screen. The Medium article mentions adding border-radius: 20px to simulate an old monitor's rounded corners
+medium.com
+.
+
+Graphics and UI Elements: In NERV interfaces, there are often boxes, grids, and text overlays. We should design our widget containers to have that feel – maybe green borders or dividing lines. Possibly, adding small flourishes like corner markings or a faux "terminal" header (like a line at the top with a label or code).
+
+Background: We can keep it plain black, or incorporate a very subtle grid or geometric pattern (Evangelion UIs often had geometric shapes or Katakana text scrolling in the background). However, to avoid distracting from widgets, probably a solid dark background with maybe a faint noise texture is fine. We could also put a semi-transparent NERV logo in the background as a watermark (since it's just personal use, this is fine).
+
+State Changes: If any data updates or alerts, using the theme colors for attention. For example, if something important (like an event coming up very soon), maybe flash it in orange. Evangelion often uses flashing text for alerts.
+
+We'll implement most of these via CSS:
+
+Create a global CSS class (e.g., .evangelion-theme) on the dashboard container that applies base styles (background, font, color).
+
+Use utility classes like .crt-text for text styling, or make all text children of the container have the neon style by default.
+
+The scanline overlay can be done once for the whole screen (since it’s a full-screen effect). For instance, an absolutely positioned <div class="scanline-overlay"> that covers the whole dashboard, with a semi-transparent repeating background as described.
+
+Another subtle effect: jitter or flicker. In some retro themes, they simulate a tiny flicker. That can be done by small opacity oscillations with CSS animation on the container. For example:
+
+@keyframes flicker {
+  0% { opacity: 0.997; }
+  5% { opacity: 1; }
+  10% { opacity: 0.994; }
+  15% { opacity: 1; }
+  /* ... random slight changes ... */
+  100% { opacity: 0.998; }
+}
+.crt-screen { animation: flicker 1.5s infinite; }
+
+
+This randomly makes the screen slightly dimmer/brighter by a percent, giving a CRT flicker illusion. We must ensure it’s very subtle to not annoy the user.
+
+To verify some of these ideas, designers have shown similar implementations – one blog on replicating a Pip-Boy (Fallout) CRT look did exactly the above: green text, scanline background, blur, and glow
+medium.com
+medium.com
+. Following those guidelines should yield an authentic look.
+
+ 
+
+We might include a snippet from that reference:
+
+For instance, to simulate scanlines: using a subtle CSS linear-gradient background of black/gray that is scaled to 1px height and repeated, then animated slowly to emulate scanlines moving
+medium.com
+medium.com
+.
+
+And for the neon text: applying a bright green color with a text-shadow for glow, using a monospace font for retro feel
+medium.com
+.
+
+For slight blur and rounded corners: applying filter: blur(0.8px) to the container and border-radius to mimic the CRT shape
+medium.com
+.
+
+All these combined will turn our web page into something that looks like it came out of Nerv HQ’s terminal room.
+
+ 
+
+Example CSS fragment for theme:
+
+body {
+  background: #000; 
+  color: #0f0; /* default neon green text */
+  font-family: "Courier New", monospace;
+}
+.widget-frame {
+  border: 1px solid #0f0; /* green borders for widget boxes */
+  padding: 5px;
+}
+.widget-title {
+  color: #0ff; /* maybe use cyan for titles */
+  text-shadow: 0 0 5px #0ff;
+  font-weight: bold;
+}
+.scanline-overlay {
+  pointer-events: none;
+  position: fixed;
+  top:0; left:0; width:100%; height:100%;
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,255,0,0.02) 50%);
+  background-size: 100% 2px;
+  mix-blend-mode: multiply;
+}
+
+
+(The above is pseudo-css for demonstration; actual tuning would be needed.)
+
+ 
+
+We will test and tweak until it evokes the desired aesthetic.
+
+Persistence and Configuration Management
+
+Persistence has a few aspects: widget configuration, layout, and authentication tokens.
+
+Widget Config: As discussed, we'll use a JSON config file (e.g., config.json) stored locally. This file is read by the backend on startup. It contains things like:
+
+{
+  "google": {
+     "client_id": "XXXXX.apps.googleusercontent.com",
+     "client_secret": "XXXXX",
+     "token": { ... }  // access & refresh tokens
+  },
+  "widgets": [
+     {
+       "type": "finance",
+       "sheetId": "1AbCdEfGhIjKl...", 
+       "range": "Transactions!A1:F500"
+     },
+     {
+       "type": "calendar",
+       "icalUrl": "https://calendar.google.com/calendar/ical/secretaddress/basic.ics",
+       "lookaheadDays": 7
+     },
+     {
+       "type": "bitcoin",
+       "currency": "USD"
+     }
+  ]
+}
+
+
+This is just an illustrative structure. We might store widget positions here too, but positions could be separate.
+
+ 
+
+The config can be manually edited. We should make the app robust to a missing or partial config (generate defaults or ask the user).
+
+Layout Persistence: Gridstack can give us an array of widgets with their x,y coordinates and width/height. We can store that in localStorage in the browser after each move. On load, our script can check localStorage for a saved layout and apply it (using Gridstack’s load() method with the saved items). We might also save it to the config file by sending it to the backend (for example, an endpoint /api/saveLayout that takes the layout JSON and merges it into the config file). Since it's local use, writing to a file is fine. Alternatively, if localStorage is reliable enough and the user doesn't plan to edit the layout outside of the browser, we could skip server persistence. But for completeness, implementing a save ensures changes survive if they switch browsers or something.
+
+OAuth Tokens: After the initial OAuth flow, we will get a refresh token. This should be stored securely. Google’s library typically will store it in a file (often named tokens.json). We can either:
+
+Use the library’s default (likely stores in your home directory or current working directory). The Node quickstart uses @google-cloud/local-auth which by default stores tokens in a file named credentials.json or similar in the working dir
+developers.google.com
+developers.google.com
+. Actually, in the code above, they downloaded a credentials.json (for client secrets) and it likely stores the token elsewhere (maybe in a tokens.json). We could just let it do that.
+
+Or intercept the token and store it in our config under the google.token field as shown. That way everything is in one config file. We should ensure this file is not world-readable (but since it's just the user on this machine, it's okay).
+
+The token contains an access token (short-lived) and a refresh token (long-lived). The refresh is what we really need to keep. We should also note the token expiry and possibly refresh in advance. Google client libs handle this automatically on calls. So as long as we reuse the OAuth client, it will refresh if needed.
+
+Other API Keys: Currently, CoinGecko doesn’t require a key for basic use. If we add any service that needs an API key (e.g., OpenWeatherMap, etc.), those keys can also go in the config file.
+
+Auto-Start Consideration: The user mentioned using Task Scheduler to start it at boot. This means the app will run likely without user logged in fully or with UI. If the OAuth hasn't been done, that could be an issue (cannot complete flow without user). So we must ensure to do OAuth setup while user is present (likely right after installation of this app). After that, on boot, it should run headless fine. If by chance the token expires and refresh fails (e.g., user revoked access), the finance widget might just show an error until user manually fixes it (we could catch such errors and perhaps output a message "Re-authentication required" in the widget).
+
+Running Locally and Deployment
+
+To run this dashboard continuously on a second monitor, here are steps and considerations:
+
+Running the Server: We will create a Node script (e.g., server.js) that starts the Express server. It will serve the static files (dashboard HTML, CSS, JS) and handle API routes. The user can run this script manually, or set it up in Task Scheduler (Windows) or as a startup service (Linux/macOS). Because it’s local, we don't need a domain or HTTPS (http://localhost is fine, and no mixed content issues since everything is either local or external HTTPS).
+
+Auto-start: On Windows, the user can create a Task Scheduler entry or put a shortcut in the Startup folder that runs node server.js on login. Alternatively, one could compile this into an executable or a service, but that’s probably not needed. On Linux, a systemd service could be made. But the user specifically mentioned Task Scheduler and a desktop wallpaper app, implying Windows usage.
+
+Second Monitor Display: The user has an app that can set a webpage as wallpaper (there are apps like Wallpaper Engine or Lively Wallpaper that do this). They can configure that app to load http://localhost:3000 (or whichever port we use) on the second monitor. The dashboard page should ideally be borderless and adapt to full-screen. The wallpaper app likely takes care of removing browser chrome. If not using a wallpaper app, an alternative is to open a Chrome window with --kiosk --app=http://localhost:3000 on that monitor.
+
+Performance: We should ensure that the app, when running, is not consuming too many resources. Node/Express idling is lightweight. Fetching data like CoinGecko or a Google sheet every minute or so is negligible. The front-end rendering is also light (some text and maybe small images or graphs). The scanline CSS animations and glows have a slight performance cost but modern GPUs handle that easily. If performance on the machine becomes an issue, those effects can be toned down (e.g., disable heavy animations).
+
+Local Access Only: By default, Express will listen on all interfaces (0.0.0.0). We might explicitly bind to localhost (127.0.0.1) to prevent any remote access. This ensures no one on the network can view the dashboard or attempt connections. Since it’s not behind auth (assuming local-only usage), we want that restriction.
+
+Development and Iteration: Because the user plans to work with LLMs to extend it, we should make the update cycle easy. For example, editing the front-end code should reflect on refresh, editing backend should just need a restart. We can run the server in a mode (like using nodemon) that auto-restarts on file changes if actively developing. This isn't part of the app delivered, but good for the user's knowledge.
+
+Conclusion & Future Considerations
+
+In summary, this design leverages proven technologies and libraries to rapidly create a personal dashboard with minimal reinventing of the wheel:
+
+Using Node + Express and Google’s API client for easy integration with Google Sheets (and possibly Calendar), storing OAuth tokens on disk for persistence
+developers.google.com
+.
+
+Using CoinGecko’s free API for crypto prices
+docs.coingecko.com
+.
+
+Parsing iCalendar feeds via an existing library (node-ical) to handle complex calendar recurrences for upcoming events
+medium.com
+.
+
+Implementing a flexible front-end grid layout with Gridstack.js for drag-and-drop and resizable widgets
+gridstackjs.com
+, which inherently provides layout state saving/loading.
+
+Crafting the Evangelion-inspired theme with pure CSS techniques: scanline animations
+medium.com
+, neon green text with glow
+medium.com
+, and slight blur for a CRT effect
+medium.com
+, all on a dark futuristic interface.
+
+Each requirement from the user is addressed with this plan:
+
+OAuth/GSheets integration – handled via Node libraries (or Python if chosen), abstracting away the complexity of token management.
+
+Best, easily extensible approach – we chose common tools and a modular design, so new widgets or changes can be made without tearing apart the system. The structure is clear and not overly tied to a particular niche framework, making it easier for an LLM to modify code in isolation (e.g., adding a new API call for a new widget).
+
+Local-only usage – Yes, everything is designed to run locally on boot and not depend on external hosting. The idea of using it as a wallpaper is supported by serving it on a local URL or making an Electron app if needed. The footprint is small (Node process + browser view).
+
+Design and SOLID principles – We emphasized separation of widget concerns, single responsibility for modules, open for extension (via config for new widgets), and using well-established libraries instead of writing from scratch (thus avoiding bugs and leveraging optimized solutions).
+
+CoinGecko for crypto – Indeed used as primary source for Bitcoin price, can extend to others as needed.
+
+With this design, the user can proceed to implementation. They will need to:
+
+Set up the Google Cloud project for API credentials.
+
+Implement the server and front-end per above.
+
+Tweak the CSS to perfection for the NERV theme (which can be a fun iterative process).
+
+Test the dashboard thoroughly (ensuring each piece updates properly and the layout persists).
+
+Once satisfied, configure the auto-run and enjoy the live dashboard on their extra monitor.
+
+Overall, the resulting dashboard will be both functional (aggregating key personal metrics at a glance) and visually striking, truly resembling something out of Neon Genesis Evangelion, while being maintainable for future enhancements.
